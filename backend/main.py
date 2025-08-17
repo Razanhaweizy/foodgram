@@ -1,7 +1,5 @@
 from fastapi import FastAPI
+from backend.routers import auth   # ensure __init__.py exports router
 
 app = FastAPI()
-
-@app.get("/")
-def read_root():
-    return {"message": "Hello, FoodGram!"}
+app.include_router(auth.router)

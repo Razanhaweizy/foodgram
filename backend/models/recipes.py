@@ -19,8 +19,6 @@ class Recipe(Base):
     title: Mapped[str] = mapped_column(String(200), index=True, nullable=False) #name of recipe
     description: Mapped[Optional[str]] = mapped_column(Text) #description of what recipe is
 
-    #for portability (SQLite/MySQL), swap JSONB -> Text and store JSON strings.
-
     ingredients: Mapped[List[str]] = mapped_column(JSONAuto, default=list, nullable=False) 
     steps: Mapped[List[str]] = mapped_column(JSONAuto, default=list, nullable=False)
 
