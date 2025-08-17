@@ -5,6 +5,7 @@ from sqlalchemy.orm import relationship, Mapped, mapped_column
 from sqlalchemy.ext.declarative import declarative_base
 from backend.models.recipes import Recipe
 from backend.models.likes import Likes
+from backend.models.saved_recipe import SavedRecipe
 
 Base = declarative_base()
 
@@ -47,8 +48,8 @@ class User(Base):
     )
 
     # Saved recipes (many-to-many)
-    saved_recipes: Mapped[List["Recipe"]] = relationship(
-        "Recipe",
-        secondary="saved_recipes",
-        back_populates="saved_by"
+    saved_recipes: Mapped[List["SavedRecipe"]] = relationship(
+        "SavedRecipe",
+        back_populates="user",
+        cascade="all, delete-orphan"
     )
