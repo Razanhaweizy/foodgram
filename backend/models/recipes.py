@@ -1,13 +1,14 @@
 from __future__ import annotations
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 from datetime import datetime
 from sqlalchemy import String, Text, DateTime, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import JSONB
 
-from .user import User
-from .likes import Like
-from .saved_recipe import SavedRecipe
+if TYPE_CHECKING:
+    from .user import User
+    from .likes import Like
+    from .saved_recipe import SavedRecipe
 
 from .types import JSONAuto
 from .base import Base

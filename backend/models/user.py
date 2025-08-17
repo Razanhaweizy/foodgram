@@ -1,11 +1,12 @@
-from typing import List
+from typing import List, TYPE_CHECKING
 from sqlalchemy import Integer, String, DateTime
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from datetime import datetime
 
-from .recipes import Recipe
-from .likes import Like
-from .saved_recipe import SavedRecipe
+if TYPE_CHECKING:
+    from .recipes import Recipe
+    from .likes import Like
+    from .saved_recipe import SavedRecipe
 
 from .base import Base
 
