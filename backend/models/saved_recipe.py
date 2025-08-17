@@ -1,10 +1,12 @@
-from sqlalchemy import Column, Integer, ForeignKey, Table, UniqueConstraint, DateTime, func
-from sqlalchemy.orm import relationship, Mapped, mapped_column, declarative_base
-from backend.models.user import User
-from backend.models.recipes import Recipe
+from __future__ import annotations
 from datetime import datetime
+from sqlalchemy import UniqueConstraint, DateTime, ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-Base = declarative_base()
+from .user import User
+from .recipes import Recipe
+
+from .base import Base
 
 class SavedRecipe(Base):
     __tablename__ = "saved_recipes"
@@ -12,11 +14,13 @@ class SavedRecipe(Base):
         UniqueConstraint("user_id", "recipe_id", name="uq_saved_user_recipe"),
     )
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
     recipe_id: Mapped[int] = mapped_column(ForeignKey("recipes.id", ondelete="CASCADE"), index=True, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
 
-    # Relationships
-    user: Mapped["User"] = relationship("User", back_populates="saved_recipes")
-    recipe: Mapped["Recipe"] = relationship("Recipe", back_populates="saves")
+    user: Mapped["User"] = relationship(back_populates="saves")
+    recipe: Mapped["Recipe"] = relationship(back_populates="saves")
+
+    def __repr__(self) -> str:
+        return f"<SavedRecipe user_id={self.user_id} recipe_id={self.recipe_id}>"

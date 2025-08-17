@@ -1,17 +1,26 @@
-from sqlalchemy import Column, Integer, ForeignKey, Table
-from sqlalchemy.orm import relationship, Mapped, mapped_column, declarative_base
-from backend.models.user import User
-from backend.models.recipes import Recipe
+from __future__ import annotations
+from datetime import datetime
+from sqlalchemy import UniqueConstraint, DateTime, ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-Base = declarative_base()
+from .user import User
+from .recipes import Recipe
 
-class Likes(Base):
+from .base import Base
+
+class Like(Base):
     __tablename__ = "likes"
+    __table_args__ = (
+        UniqueConstraint("user_id", "recipe_id", name="uq_like_user_recipe"),
+    )
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    recipe_id: Mapped[int] = mapped_column(ForeignKey("recipes.id"))
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False) #user who gave like
+    recipe_id: Mapped[int] = mapped_column(ForeignKey("recipes.id", ondelete="CASCADE"), index=True, nullable=False) #recipe liked
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False) #time liked
 
-    # Relationships
-    user: Mapped["User"] = relationship("User", back_populates="likes")
-    recipe: Mapped["Recipe"] = relationship("Recipe", back_populates="likes")
+    user: Mapped["User"] = relationship(back_populates="likes") 
+    recipe: Mapped["Recipe"] = relationship(back_populates="likes")
+
+    def __repr__(self) -> str:
+        return f"<Like user_id={self.user_id} recipe_id={self.recipe_id}>"

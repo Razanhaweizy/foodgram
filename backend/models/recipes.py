@@ -1,45 +1,64 @@
+from __future__ import annotations
 from typing import List, Optional
-from datetime import date
-from sqlalchemy import Column, Integer, String, ForeignKey, Table
-from sqlalchemy.orm import relationship, Mapped, mapped_column
-from sqlalchemy.ext.declarative import declarative_base
-from backend.models.user import User
-from backend.models.likes import Likes
-from backend.models.saved_recipe import SavedRecipe
+from datetime import datetime
+from sqlalchemy import String, Text, DateTime, ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.dialects.postgresql import JSONB
 
-Base = declarative_base()
+from .user import User
+from .likes import Like
+from .saved_recipe import SavedRecipe
 
-saved_recipes_table = Table(
-    "saved_recipes",
-    Base.metadata,
-    Column("user_id", ForeignKey("users.id"), primary_key=True),
-    Column("recipe_id", ForeignKey("recipes.id"), primary_key=True),
-)
+from .types import JSONAuto
+from .base import Base
 
 class Recipe(Base):
     __tablename__ = "recipes"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    title: Mapped[str] = mapped_column(String(200), nullable=False)
-    description: Mapped[str] = mapped_column(String(500))
-    ingredients: Mapped[str] = mapped_column(String(2000))
-    steps: Mapped[str] = mapped_column(String(5000))
-    created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    id: Mapped[int] = mapped_column(primary_key=True, index=True) #id of each recipe 
+    title: Mapped[str] = mapped_column(String(200), index=True, nullable=False) #name of recipe
+    description: Mapped[Optional[str]] = mapped_column(Text) #description of what recipe is
 
-    image_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    #for portability (SQLite/MySQL), swap JSONB -> Text and store JSON strings.
 
-    creator: Mapped["User"] = relationship("User", backref="recipes")
-    likes: Mapped[list["Likes"]] = relationship("Likes", back_populates="recipe")
+    ingredients: Mapped[List[str]] = mapped_column(JSONAuto, default=list, nullable=False) 
+    steps: Mapped[List[str]] = mapped_column(JSONAuto, default=list, nullable=False)
 
-    # Many-to-many: which users saved this recipe
-    saved_by: Mapped[List["User"]] = relationship(
-        "User",
-        secondary=saved_recipes_table,
-        back_populates="saved_recipes"
-    )
+    created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False) #which user made recipe
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False) #date created
 
-    saves: Mapped[List["SavedRecipe"]] = relationship(
-        "SavedRecipe",
+    # Relationships
+    creator: Mapped["User"] = relationship(back_populates="recipes") #user who made it
+
+    #likes this recipe recieved
+    likes: Mapped[List["Like"]] = relationship(
         back_populates="recipe",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
+
+    #whos saved this recipe
+    saves: Mapped[List["SavedRecipe"]] = relationship(
+        back_populates="recipe",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+    # Many-to-many (view-only convenience)
+    liked_by_users: Mapped[List["User"]] = relationship(
+        "User",
+        secondary="likes",
+        primaryjoin="Recipe.id==Like.recipe_id",
+        secondaryjoin="User.id==Like.user_id",
+        viewonly=True,
+    )
+    saved_by_users: Mapped[List["User"]] = relationship(
+        "User",
+        secondary="saved_recipes",
+        primaryjoin="Recipe.id==SavedRecipe.recipe_id",
+        secondaryjoin="User.id==SavedRecipe.user_id",
+        viewonly=True,
+    )
+
+    def __repr__(self) -> str:
+        return f"<Recipe id={self.id} title={self.title!r}>"

@@ -1,55 +1,48 @@
 from typing import List
-from datetime import date
-from sqlalchemy import Column, Integer, String, ForeignKey, Table
+from sqlalchemy import Integer, String, DateTime
 from sqlalchemy.orm import relationship, Mapped, mapped_column
-from sqlalchemy.ext.declarative import declarative_base
-from backend.models.recipes import Recipe
-from backend.models.likes import Likes
-from backend.models.saved_recipe import SavedRecipe
+from datetime import datetime
 
-Base = declarative_base()
+from .recipes import Recipe
+from .likes import Like
+from .saved_recipe import SavedRecipe
 
-# Association table for followers (self-referential many-to-many)
-followers_table = Table(
-    "followers",
-    Base.metadata,
-    Column("follower_id", ForeignKey("users.id"), primary_key=True),
-    Column("followed_id", ForeignKey("users.id"), primary_key=True),
-)
+from .base import Base
 
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
-    email: Mapped[str] = mapped_column(String(120), unique=True, nullable=False)
-    hashed_password: Mapped[str] = mapped_column(String(256), nullable=False)
-    date_birth: Mapped[date] = mapped_column(nullable=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True) #id of each user entered
+    username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False) #username entered by user
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False) #email entered by user
+    hashed_password: Mapped[str] = mapped_column(String(256), nullable=False) 
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False) #what day/time account was created
+
+    #date_birth: Mapped[date] = mapped_column(nullable=True)
 
     #Relationships
-    likes: Mapped[list["Likes"]] = relationship("Likes", back_populates="user")
 
+    # One-to-many
+    recipes: Mapped[List["Recipe"]] = relationship(back_populates="creator", cascade="all, delete-orphan") #recipes posted by this user
+    likes: Mapped[List["Like"]] = relationship(back_populates="user", cascade="all, delete-orphan") #recipes this user liked
+    saves: Mapped[List["SavedRecipe"]] = relationship(back_populates="user", cascade="all, delete-orphan") #recipes this user saved
 
-    # Followers / Following (self-referential)
-    followers: Mapped[List["User"]] = relationship(
-        "User",
-        secondary=followers_table,
-        primaryjoin=id == followers_table.c.followed_id,
-        secondaryjoin=id == followers_table.c.follower_id,
-        back_populates="following"
+    # Many-to-many (view-only convenience)
+    liked_recipes: Mapped[List["Recipe"]] = relationship(
+        "Recipe",
+        secondary="likes",
+        primaryjoin="User.id==Like.user_id",
+        secondaryjoin="Recipe.id==Like.recipe_id",
+        viewonly=True,
     )
 
-    following: Mapped[List["User"]] = relationship(
-        "User",
-        secondary=followers_table,
-        primaryjoin=id == followers_table.c.follower_id,
-        secondaryjoin=id == followers_table.c.followed_id,
-        back_populates="followers"
+    saved_recipes: Mapped[List["Recipe"]] = relationship(
+        "Recipe",
+        secondary="saved_recipes",
+        primaryjoin="User.id==SavedRecipe.user_id",
+        secondaryjoin="Recipe.id==SavedRecipe.recipe_id",
+        viewonly=True,
     )
 
-    # Saved recipes (many-to-many)
-    saved_recipes: Mapped[List["SavedRecipe"]] = relationship(
-        "SavedRecipe",
-        back_populates="user",
-        cascade="all, delete-orphan"
-    )
+    def __repr__(self) -> str:
+        return f"<User id={self.id} username={self.username!r}>"
