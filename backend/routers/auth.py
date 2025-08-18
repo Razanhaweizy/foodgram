@@ -115,3 +115,13 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 @router.get("/me", response_model=UserPublic)
 def me(current: User = Depends(get_current_user)):
     return current
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+def logout(_: User = Depends(get_current_user)):
+    """
+    Stateless logout.
+    In JWT systems without token storage/blacklist, logout just means:
+    - client deletes tokens
+    - server acknowledges
+    """
+    return None
