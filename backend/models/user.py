@@ -2,6 +2,7 @@ from typing import List, TYPE_CHECKING
 from sqlalchemy import Integer, String, DateTime
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from datetime import datetime
+from sqlalchemy.sql import func
 
 if TYPE_CHECKING:
     from .recipes import Recipe
@@ -17,7 +18,8 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False) #username entered by user
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False) #email entered by user
     hashed_password: Mapped[str] = mapped_column(String(256), nullable=False) 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False) #what day/time account was created
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False) #what day/time account was created
+    is_admin: Mapped[bool] = mapped_column(default=False)
 
     #date_birth: Mapped[date] = mapped_column(nullable=True)
 
