@@ -12,6 +12,13 @@ from datetime import datetime
 from sqlalchemy import or_, func
 from fastapi import Query
 
+from backend.crud.users import (
+    get_user_by_id as crud_get_user_by_id,
+    update_user as crud_update_user,
+    delete_user as crud_delete_user,
+    list_users as crud_list_users
+)
+
 router = APIRouter(
     prefix="/users", 
     tags=["users"]
@@ -57,56 +64,64 @@ def delete_me(db: Session = Depends(get_db), current_user: User = Depends(get_cu
     return None
 
 @router.get("", response_model=UsersPage, summary="(admin) List users (paginated)")
-def list_users(
+def list_users_route(
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
-
-    # Filters (all optional)
     q: Optional[str] = Query(None, description="Search username/email"),
     created_after: Optional[datetime] = Query(None),
     created_before: Optional[datetime] = Query(None),
-
-    # Sorting & pagination
     sort_by: Literal["id", "username", "email", "created_at"] = "created_at",
     sort_dir: Literal["asc", "desc"] = "desc",
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ):
-    query = db.query(User)
-
-    # text search (case-insensitive)
-    if q:
-        like = f"%{q}%"
-        query = query.filter(or_(User.username.ilike(like), User.email.ilike(like)))
-
-    if created_after:
-        query = query.filter(User.created_at >= created_after)
-    if created_before:
-        query = query.filter(User.created_at <= created_before)
-
-    # total BEFORE pagination
-    total = query.with_entities(func.count(User.id)).scalar() or 0
-
-    # sorting
-    sort_col = getattr(User, sort_by)
-    if sort_dir == "desc":
-        sort_col = sort_col.desc()
-    query = query.order_by(sort_col)
-
-    # pagination
-    users = query.offset(offset).limit(limit).all()
-    items = [UserOut.model_validate(u, from_attributes=True) for u in users]  
-
-    return UsersPage(
-        items=items,
-        total=total,
+    users, total = crud_list_users(
+        db=db,
+        q=q,
+        created_after=created_after,
+        created_before=created_before,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
         limit=limit,
         offset=offset,
     )
 
+    return UsersPage(
+        items=[UserOut.model_validate(u, from_attributes=True) for u in users],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
+    
+
 @router.get("/{user_id}", response_model=UserOut, summary="(admin) Get a user by id")
 def get_user_by_id(user_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
-    user = db.get(User, user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    return user
+    return crud_get_user_by_id(db, user_id)
+
+@router.patch(
+    "/{user_id}",
+    response_model=UserOut,
+    summary="(admin) Update a user by id"
+)
+def admin_update_user(
+    user_id: int,
+    payload: UserUpdate,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),  # enforce admin
+):
+    data = payload.model_dump(exclude_unset=True)
+    return crud_update_user(db, user_id, data)
+
+
+@router.delete(
+    "/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="(admin) Delete a user by id"
+)
+def admin_delete_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),  # enforce admin
+):
+    crud_delete_user(db, user_id)
+    return None
