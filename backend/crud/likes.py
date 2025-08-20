@@ -3,10 +3,7 @@ from sqlalchemy import or_, func, and_, exists
 from fastapi import FastAPI, HTTPException, Depends, status
 from backend.models.likes import Like
 from backend.models.recipes import Recipe
-from backend.core.security import hash_password, verify_password
-from sqlalchemy.exc import IntegrityError
-from typing import Optional, Literal
-from datetime import datetime
+
 
 def _ensure_recipe_exists(db: Session, recipe_id: int) -> None:
     if not db.get(Recipe, recipe_id):

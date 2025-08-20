@@ -2,7 +2,6 @@ from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import or_, func
 from fastapi import FastAPI, HTTPException, Depends, status
 from backend.models.recipes import Recipe
-from backend.models.user import User
 from typing import Optional, Literal
 from datetime import datetime
 

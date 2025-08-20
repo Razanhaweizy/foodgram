@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_, func
 from fastapi import FastAPI, HTTPException, Depends, status
 from backend.models.user import User
-from backend.core.security import hash_password, verify_password
+from backend.core.security import hash_password
 from sqlalchemy.exc import IntegrityError
 from typing import Optional, Literal
 from datetime import datetime
