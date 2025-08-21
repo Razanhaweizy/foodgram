@@ -4,6 +4,7 @@ from datetime import datetime
 from sqlalchemy import String, Text, DateTime, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import JSONB
+from .tags import Tag, recipe_tags
 
 if TYPE_CHECKING:
     from .user import User
@@ -58,6 +59,8 @@ class Recipe(Base):
         secondaryjoin="User.id==SavedRecipe.user_id",
         viewonly=True,
     )
+
+    tags: Mapped[list[Tag]] = relationship("Tag", secondary=recipe_tags, back_populates="recipes", lazy="selectin")
 
     def __repr__(self) -> str:
         return f"<Recipe id={self.id} title={self.title!r}>"

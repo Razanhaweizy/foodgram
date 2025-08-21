@@ -4,12 +4,19 @@ from fastapi import FastAPI, HTTPException, Depends, status
 from backend.models.recipes import Recipe
 from typing import Optional, Literal
 from datetime import datetime
+from backend.models.tags import Tag
 
 from backend.schemas.recipes import RecipeOut
 
-def create_recipe(db: Session, author_id: int, input_title: str, input_description: Optional[str], input_ingredients: list[str], input_steps: list[str]):
+def create_recipe(db: Session, author_id: int, input_title: str, input_description: Optional[str], input_ingredients: list[str], input_steps: list[str], tag_ids: list[int] = []):
     new_recipe = Recipe(created_by_id = author_id, title = input_title, description = input_description, ingredients = input_ingredients, steps = input_steps)
     
+    if tag_ids:
+        tags = db.query(Tag).filter(Tag.id.in_(tag_ids)).all()
+        if len(tags) != len(set(tag_ids)):
+            raise HTTPException(status_code=404, detail="One or more tags not found")
+        new_recipe.tags = tags
+
     db.add(new_recipe)
     db.commit()
     db.refresh(new_recipe)
@@ -68,6 +75,13 @@ def update_recipe(db: Session, id: int, data: dict):
     recipe = db.query(Recipe).filter(Recipe.id == id).first()
     if not recipe:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recipe not found")
+    
+    tag_ids = data.pop("tag_ids", None)
+    if tag_ids is not None:
+        tags = db.query(Tag).filter(Tag.id.in_(tag_ids)).all()
+        if len(tags) != len(set(tag_ids)):
+            raise HTTPException(status_code=404, detail="One or more tags not found")
+        recipe.tags = tags
     
     for field, value in data.items():
         if hasattr(recipe, field) and value is not None:
