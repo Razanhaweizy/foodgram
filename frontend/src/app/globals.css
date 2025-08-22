@@ -120,3 +120,12 @@
     @apply bg-background text-foreground;
   }
 }
+
+:root {
+  --ink: #667b68;         /* darkest text */
+  --muted-ink: #667b68cc; /* 80% */
+  --accent-dk: #667b68;   /* primary button */
+  --accent-md: #a3b899;   /* borders / accents */
+  --panel: #fceee9;       /* panel/card */
+  --bg: linear-gradient(135deg, #f8d3c5 0%, #fceee9 35%, #dde6d5 100%);
+}
