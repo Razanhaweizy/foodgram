@@ -61,7 +61,7 @@ def list_users(
     return users, total
 
 def update_user(db: Session, user_id: int, data: dict):
-    user = db.get(User, id)
+    user = db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 

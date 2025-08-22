@@ -110,7 +110,7 @@ def admin_update_user(
     _: User = Depends(require_admin),  # enforce admin
 ):
     data = payload.model_dump(exclude_unset=True)
-    return crud_update_user(db, user_id, data)
+    return crud_update_user(db, user_id=user_id, data=data)
 
 
 @router.delete(

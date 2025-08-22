@@ -1,6 +1,6 @@
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
@@ -12,7 +12,6 @@ from backend.schemas.auth import UserCreate, UserPublic, TokenPair, TokenRefresh
 from backend.core.security import hash_password, verify_password
 from backend.core.jwt import create_access_token, create_refresh_token, issue_tokens
 from backend.core.config import settings
-
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -117,11 +116,8 @@ def me(current: User = Depends(get_current_user)):
     return current
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
-def logout(_: User = Depends(get_current_user)):
+def logout() -> Response:
     """
-    Stateless logout.
-    In JWT systems without token storage/blacklist, logout just means:
-    - client deletes tokens
-    - server acknowledges
+    Stateless JWT logoutL nothing to revoke server-side
     """
-    return None
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

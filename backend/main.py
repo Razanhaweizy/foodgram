@@ -5,10 +5,11 @@ import backend.models
 from backend.models.base import Base
 from backend.database import engine
 from backend.models import user, recipes, likes, saved_recipe
+from backend.routers import auth, users, recipes, likes, saves, tags, health
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI()
+app = FastAPI(title="Foodgram API")
 
 #Allowed origins
 origins = [
@@ -32,3 +33,9 @@ def on_startup():
 
 # Routers
 app.include_router(auth.router)
+app.include_router(users.router)
+app.include_router(recipes.router)
+app.include_router(likes.router)
+app.include_router(saves.router)
+app.include_router(tags.router)
+app.include_router(health.router)
