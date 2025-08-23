@@ -1,21 +1,13 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { fetchRecipeById, deleteRecipe, likeRecipe, unlikeRecipe, saveRecipe, unsaveRecipe } from "@/lib/recipes";
 import { getCurrentUserId } from "@/lib/auth-token";
-import {
-  fetchRecipeById,
-  likeRecipe,
-  unlikeRecipe,
-  saveRecipe,
-  unsaveRecipe,
-  deleteRecipe,
-} from "@/lib/recipes";
-import type { Recipe } from "@/lib/types";
-import { Button } from "@/components/ui/button";
 import { Heart, Bookmark, Pencil, Trash2 } from "lucide-react";
 
 export default function RecipeDetailPage() {
@@ -25,76 +17,37 @@ export default function RecipeDetailPage() {
   const qc = useQueryClient();
   const meId = getCurrentUserId();
 
-  // Fetch recipe
-  const { data: recipe, isLoading, isError } = useQuery<Recipe>({
+  const { data: recipe, isLoading, isError } = useQuery({
     queryKey: ["recipe", rid],
     queryFn: () => fetchRecipeById(rid),
   });
 
-  // Utility to bump counts locally (optimistic feel)
-  const setCounts = (partial: Partial<Pick<Recipe, "likes_count" | "saves_count">>) => {
-    qc.setQueryData<Recipe>(["recipe", rid], (old) =>
-      old ? { ...old, ...partial, likes_count: partial.likes_count ?? old.likes_count, saves_count: partial.saves_count ?? old.saves_count } : old
-    );
-  };
-
-  // Mutations
+  // --- Like / Unlike
   const likeMut = useMutation({
     mutationFn: () => likeRecipe(rid),
-    onMutate: async () => {
-      await qc.cancelQueries({ queryKey: ["recipe", rid] });
-      if (recipe) setCounts({ likes_count: recipe.likes_count + 1 });
-    },
-    onError: () => {
-      if (recipe) setCounts({ likes_count: recipe.likes_count });
-      toast.error("Couldn’t like");
-    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["recipe", rid] }),
   });
-
   const unlikeMut = useMutation({
     mutationFn: () => unlikeRecipe(rid),
-    onMutate: async () => {
-      await qc.cancelQueries({ queryKey: ["recipe", rid] });
-      if (recipe) setCounts({ likes_count: Math.max(0, recipe.likes_count - 1) });
-    },
-    onError: () => {
-      if (recipe) setCounts({ likes_count: recipe.likes_count });
-      toast.error("Couldn’t unlike");
-    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["recipe", rid] }),
   });
 
+  // --- Save / Unsave
   const saveMut = useMutation({
     mutationFn: () => saveRecipe(rid),
-    onMutate: async () => {
-      await qc.cancelQueries({ queryKey: ["recipe", rid] });
-      if (recipe) setCounts({ saves_count: recipe.saves_count + 1 });
-    },
-    onError: () => {
-      if (recipe) setCounts({ saves_count: recipe.saves_count });
-      toast.error("Couldn’t save");
-    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["recipe", rid] }),
   });
-
   const unsaveMut = useMutation({
     mutationFn: () => unsaveRecipe(rid),
-    onMutate: async () => {
-      await qc.cancelQueries({ queryKey: ["recipe", rid] });
-      if (recipe) setCounts({ saves_count: Math.max(0, recipe.saves_count - 1) });
-    },
-    onError: () => {
-      if (recipe) setCounts({ saves_count: recipe.saves_count });
-      toast.error("Couldn’t unsave");
-    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["recipe", rid] }),
   });
 
+  // --- Delete (owner only)
   const delMut = useMutation({
     mutationFn: () => deleteRecipe(rid),
     onSuccess: () => {
       toast.success("Recipe deleted");
+      // refresh lists and go back to feed
       qc.invalidateQueries({ queryKey: ["recipes"] });
       router.push("/recipes");
     },
@@ -108,19 +61,47 @@ export default function RecipeDetailPage() {
 
   return (
     <div className="mx-auto max-w-3xl p-6">
-      {/* Title + counts */}
+      {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <h1 className="text-2xl font-semibold text-[#2b2b2b]">{recipe.title}</h1>
-        <div className="flex items-center gap-4 text-sm text-[#667b68]">
-          <div className="flex items-center gap-1">
-            <Heart className="size-4" />
-            <span>{recipe.likes_count}</span>
+
+        {/* Owner actions */}
+        {isOwner && (
+          <div className="flex gap-2">
+            <Link
+              href={`/recipes/${rid}/edit`}
+              className="inline-flex items-center gap-2 rounded-xl border border-[#e6dfdd] px-3 py-2 text-sm text-[#2b2b2b] hover:bg-[#dde6d5]/40"
+            >
+              <Pencil className="size-4" />
+              Edit
+            </Link>
+            <button
+              onClick={() => {
+                if (delMut.isPending) return;
+                if (confirm("Delete this recipe? This cannot be undone.")) {
+                  delMut.mutate();
+                }
+              }}
+              disabled={delMut.isPending}
+              className="inline-flex items-center gap-2 rounded-xl bg-[#e85c5c] px-3 py-2 text-sm text-white hover:brightness-105 disabled:opacity-60"
+            >
+              <Trash2 className="size-4" />
+              {delMut.isPending ? "Deleting…" : "Delete"}
+            </button>
           </div>
-          <div className="flex items-center gap-1">
-            <Bookmark className="size-4" />
-            <span>{recipe.saves_count}</span>
-          </div>
-        </div>
+        )}
+      </div>
+
+      {/* Meta */}
+      <div className="mt-2 flex items-center gap-4 text-sm text-[#667b68]">
+        <span className="inline-flex items-center gap-1">
+          <Heart className="size-4" />
+          {recipe.likes_count}
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <Bookmark className="size-4" />
+          {recipe.saves_count}
+        </span>
       </div>
 
       {/* Tags */}
@@ -137,87 +118,59 @@ export default function RecipeDetailPage() {
         </div>
       ) : null}
 
-      {/* Description */}
+      {/* Body */}
       {recipe.description && (
         <p className="mt-4 text-[#2b2b2b]">{recipe.description}</p>
       )}
 
-      {/* Ingredients */}
       <section className="mt-6">
-        <h2 className="mb-2 text-lg font-semibold text-[#2b2b2b]">Ingredients</h2>
+        <h2 className="mb-2 font-medium text-[#2b2b2b]">Ingredients</h2>
         <ul className="list-disc space-y-1 pl-5 text-[#2b2b2b]">
-          {recipe.ingredients.map((ing, i) => (
-            <li key={i}>{ing}</li>
+          {recipe.ingredients.map((i, idx) => (
+            <li key={idx}>{i}</li>
           ))}
         </ul>
       </section>
 
-      {/* Steps */}
       <section className="mt-6">
-        <h2 className="mb-2 text-lg font-semibold text-[#2b2b2b]">Steps</h2>
+        <h2 className="mb-2 font-medium text-[#2b2b2b]">Steps</h2>
         <ol className="list-decimal space-y-2 pl-5 text-[#2b2b2b]">
-          {recipe.steps.map((s, i) => (
-            <li key={i}>{s}</li>
+          {recipe.steps.map((s, idx) => (
+            <li key={idx}>{s}</li>
           ))}
         </ol>
       </section>
 
       {/* Actions */}
-      <div className="mt-8 flex flex-wrap gap-3">
-        <Button
+      <div className="mt-8 flex flex-wrap gap-2">
+        <button
           onClick={() => likeMut.mutate()}
           disabled={likeMut.isPending}
-          className="bg-[#667b68] text-white hover:brightness-105"
+          className="rounded-xl bg-[#667b68] px-3 py-2 text-sm text-white hover:brightness-105 disabled:opacity-60"
         >
-          <Heart className="mr-2 size-4" /> Like
-        </Button>
-        <Button
-          variant="outline"
+          Like
+        </button>
+        <button
           onClick={() => unlikeMut.mutate()}
           disabled={unlikeMut.isPending}
-          className="border-[#e6dfdd] text-[#2b2b2b] hover:bg-[#dde6d5]/40"
+          className="rounded-xl border border-[#e6dfdd] px-3 py-2 text-sm text-[#2b2b2b] hover:bg-[#dde6d5]/40 disabled:opacity-60"
         >
           Unlike
-        </Button>
-        <Button
+        </button>
+        <button
           onClick={() => saveMut.mutate()}
           disabled={saveMut.isPending}
-          className="bg-[#a3b899] text-white hover:brightness-105"
+          className="rounded-xl bg-[#a3b899] px-3 py-2 text-sm text-white hover:brightness-105 disabled:opacity-60"
         >
-          <Bookmark className="mr-2 size-4" /> Save
-        </Button>
-        <Button
-          variant="outline"
+          Save
+        </button>
+        <button
           onClick={() => unsaveMut.mutate()}
           disabled={unsaveMut.isPending}
-          className="border-[#e6dfdd] text-[#2b2b2b] hover:bg-[#dde6d5]/40"
+          className="rounded-xl border border-[#e6dfdd] px-3 py-2 text-sm text-[#2b2b2b] hover:bg-[#dde6d5]/40 disabled:opacity-60"
         >
           Unsave
-        </Button>
-
-        {isOwner && (
-          <>
-            <Button
-              variant="outline"
-              onClick={() => router.push(`/recipes/${rid}/edit`)}
-              className="ml-auto border-[#e6dfdd] text-[#2b2b2b]"
-            >
-              <Pencil className="mr-2 size-4" /> Edit
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => {
-                if (delMut.isPending) return;
-                if (confirm("Delete this recipe? This cannot be undone.")) {
-                  delMut.mutate();
-                }
-              }}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              <Trash2 className="mr-2 size-4" /> Delete
-            </Button>
-          </>
-        )}
+        </button>
       </div>
     </div>
   );
