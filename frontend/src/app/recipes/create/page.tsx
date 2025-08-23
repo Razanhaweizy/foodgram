@@ -1,33 +1,49 @@
+// src/app/recipes/create/page.tsx
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { createRecipe } from "@/lib/recipes";
 import RecipeForm from "@/components/RecipeForm";
+import { createRecipe } from "@/lib/recipes";
 
 export default function CreateRecipePage() {
   const router = useRouter();
-  const qc = useQueryClient();
 
   const mut = useMutation({
-    mutationFn: createRecipe, // expects {title, description?, ingredients, steps, tag_ids?}
+    mutationFn: createRecipe,
     onSuccess: (recipe) => {
       toast.success("Recipe created!");
-      // refresh feeds and navigate to the new recipe
-      qc.invalidateQueries({ queryKey: ["recipes"] });
       router.push(`/recipes/${recipe.id}`);
     },
     onError: (e: any) => {
-      toast.error(e?.message ?? "Could not create recipe");
+      toast.error(e?.message ?? "Failed to create recipe");
     },
   });
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 p-6">
-      <h1 className="text-2xl font-semibold text-[#2b2b2b]">Create Recipe</h1>
+      {/* Top bar: exit options */}
+      <div className="flex items-center justify-between">
+        <Link
+          href="/"
+          className="rounded-xl bg-[#667b68] px-4 py-2 text-sm text-white hover:brightness-105"
+        >
+          ← Back to My Page
+        </Link>
+
+        <Link
+          href="/recipes"
+          className="rounded-xl border border-[#e6dfdd] px-4 py-2 text-sm text-[#2b2b2b] hover:bg-[#dde6d5]/40"
+        >
+          Browse Recipes
+        </Link>
+      </div>
+
+      <h1 className="text-2xl font-semibold text-[#2b2b2b]">Create a Recipe</h1>
 
       <RecipeForm
         initial={{
@@ -35,12 +51,11 @@ export default function CreateRecipePage() {
           description: "",
           ingredientsText: "",
           stepsText: "",
-          // comma‑separated tag IDs (optional). Leave blank if you don’t use tags yet.
-          tagsText: "",
+          tagsText: "", // comma-separated tag IDs if you’re using them
         }}
-        submitLabel={mut.isPending ? "Creating…" : "Create"}
+        submitLabel={mut.isPending ? "Creating..." : "Create Recipe"}
         onSubmit={async (payload) => {
-          // payload should already be: { title, description?, ingredients, steps, tag_ids? }
+          // RecipeForm should give you { title, description, ingredients, steps, tag_ids? }
           await mut.mutateAsync(payload);
         }}
       />

@@ -6,9 +6,25 @@ import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { fetchRecipeById, deleteRecipe, likeRecipe, unlikeRecipe, saveRecipe, unsaveRecipe } from "@/lib/recipes";
+import {
+  fetchRecipeById,
+  deleteRecipe,
+  likeRecipe,
+  unlikeRecipe,
+  saveRecipe,
+  unsaveRecipe,
+} from "@/lib/recipes";
+import { fetchUserById } from "@/lib/users";
 import { getCurrentUserId } from "@/lib/auth-token";
-import { Heart, Bookmark, Pencil, Trash2 } from "lucide-react";
+import type { Recipe } from "@/lib/types";
+import {
+  Heart,
+  Bookmark,
+  Pencil,
+  Trash2,
+  ArrowLeft,
+  User as UserIcon,
+} from "lucide-react";
 
 export default function RecipeDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -17,12 +33,20 @@ export default function RecipeDetailPage() {
   const qc = useQueryClient();
   const meId = getCurrentUserId();
 
-  const { data: recipe, isLoading, isError } = useQuery({
+  // Typed query: Recipe
+  const { data: recipe, isLoading, isError } = useQuery<Recipe>({
     queryKey: ["recipe", rid],
     queryFn: () => fetchRecipeById(rid),
   });
 
-  // --- Like / Unlike
+  // Author (after recipe arrives)
+  const { data: author } = useQuery({
+    queryKey: ["user", recipe?.created_by_id],
+    enabled: !!recipe?.created_by_id,
+    queryFn: () => fetchUserById(recipe!.created_by_id),
+  });
+
+  // Like / Unlike
   const likeMut = useMutation({
     mutationFn: () => likeRecipe(rid),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["recipe", rid] }),
@@ -32,7 +56,7 @@ export default function RecipeDetailPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["recipe", rid] }),
   });
 
-  // --- Save / Unsave
+  // Save / Unsave
   const saveMut = useMutation({
     mutationFn: () => saveRecipe(rid),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["recipe", rid] }),
@@ -42,12 +66,11 @@ export default function RecipeDetailPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["recipe", rid] }),
   });
 
-  // --- Delete (owner only)
+  // Delete (owner only)
   const delMut = useMutation({
     mutationFn: () => deleteRecipe(rid),
     onSuccess: () => {
       toast.success("Recipe deleted");
-      // refresh lists and go back to feed
       qc.invalidateQueries({ queryKey: ["recipes"] });
       router.push("/recipes");
     },
@@ -59,13 +82,63 @@ export default function RecipeDetailPage() {
 
   const isOwner = meId === recipe.created_by_id;
 
-  return (
-    <div className="mx-auto max-w-3xl p-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <h1 className="text-2xl font-semibold text-[#2b2b2b]">{recipe.title}</h1>
+  // created_at is a string from API – format safely
+  const createdAtText =
+    recipe.created_at
+      ? new Date(recipe.created_at as unknown as string).toLocaleDateString()
+      : undefined;
 
-        {/* Owner actions */}
+  return (
+    <div className="mx-auto max-w-3xl p-6 space-y-6">
+      {/* Top nav */}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => router.back()}
+          className="inline-flex items-center gap-2 rounded-xl bg-[#a3b899] px-3 py-2 text-sm text-white hover:brightness-105"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </button>
+
+        <div className="flex items-center gap-2">
+          <Link
+            href="/me"
+            className="rounded-xl bg-[#a3b899] px-3 py-2 text-sm text-white hover:brightness-105"
+          >
+            My Page
+          </Link>
+          <Link
+            href="/recipes"
+            className="rounded-xl border border-[#e6dfdd] px-3 py-2 text-sm text-[#2b2b2b] hover:bg-[#dde6d5]/40"
+          >
+            Browse Recipes
+          </Link>
+        </div>
+      </div>
+
+      {/* Title + author + owner actions */}
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold text-[#2b2b2b]">{recipe.title}</h1>
+
+          <div className="flex flex-wrap items-center gap-3 text-sm text-[#667b68]">
+            <span className="inline-flex items-center gap-1">
+              <UserIcon className="h-4 w-4" />
+              {author ? (
+                <Link
+                  href={`/users/${author.id}`}
+                  className="underline underline-offset-2 hover:opacity-90"
+                >
+                  @{author.username}
+                </Link>
+              ) : (
+                <>by user #{recipe.created_by_id}</>
+              )}
+            </span>
+            {createdAtText && <span>• {createdAtText}</span>}
+          </div>
+        </div>
+
         {isOwner && (
           <div className="flex gap-2">
             <Link
@@ -92,7 +165,7 @@ export default function RecipeDetailPage() {
         )}
       </div>
 
-      {/* Meta */}
+      {/* Counts */}
       <div className="mt-2 flex items-center gap-4 text-sm text-[#667b68]">
         <span className="inline-flex items-center gap-1">
           <Heart className="size-4" />
@@ -118,11 +191,12 @@ export default function RecipeDetailPage() {
         </div>
       ) : null}
 
-      {/* Body */}
+      {/* Description */}
       {recipe.description && (
         <p className="mt-4 text-[#2b2b2b]">{recipe.description}</p>
       )}
 
+      {/* Ingredients */}
       <section className="mt-6">
         <h2 className="mb-2 font-medium text-[#2b2b2b]">Ingredients</h2>
         <ul className="list-disc space-y-1 pl-5 text-[#2b2b2b]">
@@ -132,6 +206,7 @@ export default function RecipeDetailPage() {
         </ul>
       </section>
 
+      {/* Steps */}
       <section className="mt-6">
         <h2 className="mb-2 font-medium text-[#2b2b2b]">Steps</h2>
         <ol className="list-decimal space-y-2 pl-5 text-[#2b2b2b]">

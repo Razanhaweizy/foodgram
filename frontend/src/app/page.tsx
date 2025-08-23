@@ -1,18 +1,17 @@
-import { Layout } from "@/components/layout"
-import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { getAccessToken } from "@/lib/validation/auth"; // or wherever your token helpers live
 
 export default function Home() {
-  return (
-    <Layout>
-      <Card className="max-w-md mx-auto">
-        <CardContent className="space-y-4 p-6">
-          <h1 className="text-2xl font-bold text-center">Welcome to Foodgram 🍲</h1>
-          <Input placeholder="Search recipes..." />
-          <Button className="w-full">Search</Button>
-        </CardContent>
-      </Card>
-    </Layout>
-  )
+  const router = useRouter();
+
+  useEffect(() => {
+    const hasToken = !!getAccessToken();
+    router.replace(hasToken ? "/me" : "/login");
+  }, [router]);
+
+  // Tiny placeholder while redirecting
+  return <div className="p-6 text-[#667b68]">Loading…</div>;
 }

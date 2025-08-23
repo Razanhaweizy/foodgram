@@ -10,7 +10,7 @@ import { fetchRecipes, fetchMySavedRecipes } from "@/lib/recipes";
 import type { Recipe, RecipesPage } from "@/lib/types";
 import { RecipeCard } from "@/components/recipes/RecipeCard";
 
-// if your token helpers live elsewhere, adjust this import:
+// adjust this import if your helpers live elsewhere
 import { clearTokens } from "@/lib/validation/auth";
 
 export default function MePage() {
@@ -88,36 +88,56 @@ export default function MePage() {
           <h1 className="text-2xl font-semibold text-[#2b2b2b]">@{me.username}</h1>
           <p className="text-sm text-[#667b68]">{me.email}</p>
         </div>
-        <button
-          onClick={onLogout}
-          className="rounded-xl border border-[#e6dfdd] px-4 py-2 text-sm text-[#2b2b2b] hover:bg-[#dde6d5]/40"
-        >
-          Log out
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => router.push("/recipes")}
+            className="rounded-xl bg-[#667b68] px-4 py-2 text-white hover:brightness-105"
+          >
+            Browse Recipes
+          </button>
+          <button
+            onClick={onLogout}
+            className="rounded-xl border border-[#e6dfdd] px-4 py-2 text-sm text-[#2b2b2b] hover:bg-[#dde6d5]/40"
+          >
+            Log out
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
-      <div className="mt-6 flex gap-2">
-        <button
-          onClick={() => setActiveTab("mine")}
-          className={`rounded-xl px-4 py-2 text-sm ${
-            activeTab === "mine"
-              ? "bg-[#667b68] text-white"
-              : "border border-[#e6dfdd] text-[#2b2b2b] hover:bg-[#dde6d5]/40"
-          }`}
-        >
-          My Recipes
-        </button>
-        <button
-          onClick={() => setActiveTab("saved")}
-          className={`rounded-xl px-4 py-2 text-sm ${
-            activeTab === "saved"
-              ? "bg-[#667b68] text-white"
-              : "border border-[#e6dfdd] text-[#2b2b2b] hover:bg-[#dde6d5]/40"
-          }`}
-        >
-          Saved
-        </button>
+      <div className="mt-6 flex items-center justify-between">
+        <div className="flex gap-2">
+          <button
+            onClick={() => setActiveTab("mine")}
+            className={`rounded-xl px-4 py-2 text-sm ${
+              activeTab === "mine"
+                ? "bg-[#667b68] text-white"
+                : "border border-[#e6dfdd] text-[#2b2b2b] hover:bg-[#dde6d5]/40"
+            }`}
+          >
+            My Recipes
+          </button>
+          <button
+            onClick={() => setActiveTab("saved")}
+            className={`rounded-xl px-4 py-2 text-sm ${
+              activeTab === "saved"
+                ? "bg-[#667b68] text-white"
+                : "border border-[#e6dfdd] text-[#2b2b2b] hover:bg-[#dde6d5]/40"
+            }`}
+          >
+            Saved
+          </button>
+        </div>
+
+        {/* Create button only on "My Recipes" tab */}
+        {activeTab === "mine" && (
+          <button
+            onClick={() => router.push("/recipes/create")}
+            className="rounded-xl bg-[#a3b899] px-4 py-2 text-sm text-white hover:brightness-105"
+          >
+            + Create Recipe
+          </button>
+        )}
       </div>
 
       {/* Content */}
@@ -128,7 +148,16 @@ export default function MePage() {
             loading={mineLoading}
             error={mineError}
             data={mine}
-            queryKey={qMine as unknown as unknown[]}
+            // RecipeCard expects a list of query keys; wrap in an array
+            queryKey={[qMine] as unknown as unknown[]}
+            emptyCta={(
+              <button
+                onClick={() => router.push("/recipes/create")}
+                className="mt-2 rounded-xl bg-[#a3b899] px-4 py-2 text-sm text-white hover:brightness-105"
+              >
+                Create your first recipe
+              </button>
+            )}
           />
         ) : (
           <Section
@@ -136,7 +165,7 @@ export default function MePage() {
             loading={savedLoading}
             error={savedError}
             data={saved}
-            queryKey={qSaved as unknown as unknown[]}
+            queryKey={[qSaved] as unknown as unknown[]}
           />
         )}
       </div>
@@ -150,12 +179,14 @@ function Section({
   error,
   data,
   queryKey,
+  emptyCta,
 }: {
   title: string;
   loading: boolean;
   error: boolean;
   data?: RecipesPage;
   queryKey: unknown[];
+  emptyCta?: React.ReactNode;
 }) {
   if (loading) return <p className="text-[#667b68]">Loading {title}…</p>;
   if (error) return <p className="text-red-600">Failed to load {title.toLowerCase()}.</p>;
@@ -163,10 +194,13 @@ function Section({
   return data?.items?.length ? (
     <div className="grid gap-4">
       {data.items.map((r: Recipe) => (
-        <RecipeCard key={r.id} recipe={r} queryKey={[queryKey]} />
+        <RecipeCard key={r.id} recipe={r} queryKey={queryKey} />
       ))}
     </div>
   ) : (
-    <p className="text-[#667b68]">No {title.toLowerCase()} yet.</p>
+    <div className="text-[#667b68]">
+      <p>No {title.toLowerCase()} yet.</p>
+      {emptyCta}
+    </div>
   );
 }
