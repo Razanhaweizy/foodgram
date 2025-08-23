@@ -41,7 +41,8 @@ def list_recipes(
         sort_by: Literal["id", "title", "created_at"] = "created_at",
         sort_dir: Literal["asc", "desc"] = "desc",
         limit: int = 20,
-        offset: int=0
+        offset: int=0,
+        author_id: Optional[int] = None,
         ):
     
     query = (db.query(Recipe).options(
@@ -59,6 +60,8 @@ def list_recipes(
         query = query.filter(Recipe.created_at >= created_after)
     if created_before:
         query = query.filter(Recipe.created_at <= created_before)
+    if author_id is not None:
+        query = query.filter(Recipe.created_by_id == author_id)
 
     total = query.with_entities(func.count(Recipe.id)).scalar() or 0
 
