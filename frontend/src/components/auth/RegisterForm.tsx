@@ -88,7 +88,7 @@ export default function RegisterForm() {
           value={form.username}
           onChange={(e) => setForm((s) => ({ ...s, username: e.target.value }))}
           className="block w-full rounded-xl border border-[#e6dfdd] bg-white px-4 py-3 text-[#2b2b2b] outline-none transition focus:border-[#a3b899] focus:ring-2 focus:ring-[#a3b899]/30"
-          placeholder="yourname"
+          placeholder="razan"
         />
       </div>
 
@@ -101,7 +101,7 @@ export default function RegisterForm() {
           value={form.email}
           onChange={(e) => setForm((s) => ({ ...s, email: e.target.value }))}
           className="block w-full rounded-xl border border-[#e6dfdd] bg-white px-4 py-3 text-[#2b2b2b] outline-none transition focus:border-[#a3b899] focus:ring-2 focus:ring-[#a3b899]/30"
-          placeholder="you@example.com"
+          placeholder="razan@example.com"
         />
       </div>
 
