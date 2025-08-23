@@ -1,6 +1,6 @@
-// src/lib/recipes.ts
 import { apiFetch } from "@/lib/api";
 import type { RecipesPage, Recipe } from "./types";
+import { int } from "zod";
 
 /** Allowed sort fields & directions (tweak to match your backend) */
 type SortBy = "created_at" | "title" | "id";
@@ -12,6 +12,7 @@ type ListParams = {
   offset?: number;
   sort_by?: SortBy;
   sort_dir?: SortDir;
+  author_id?: number;
 };
 
 // LIST
@@ -22,6 +23,8 @@ export async function fetchRecipes(params?: ListParams) {
   if (params?.offset != null) qs.set("offset", String(params.offset));
   if (params?.sort_by) qs.set("sort_by", params.sort_by);
   if (params?.sort_dir) qs.set("sort_dir", params.sort_dir);
+  if (params?.author_id != null) qs.set("author_id", String(params.author_id));
+
 
   const res = await apiFetch(`/recipes${qs.toString() ? `?${qs.toString()}` : ""}`);
   if (!res.ok) throw new Error("Failed to fetch recipes");
@@ -111,4 +114,13 @@ export async function unsaveRecipe(id: number) {
   const r = await apiFetch(`/recipes/${id}/save`, { method: "DELETE" });
   if (!r.ok) throw new Error("Failed to unsave");
   return r.json();
+}
+
+export async function fetchMySavedRecipes(params?: { limit?: number; offset?: number }) {
+  const qs = new URLSearchParams();
+  if (params?.limit) qs.set("limit", String(params.limit));
+  if (params?.offset) qs.set("offset", String(params.offset));
+  const res = await apiFetch(`/recipes/me/saves${qs.toString() ? "?" + qs.toString() : ""}`);
+  if (!res.ok) throw new Error("Failed to fetch saved recipes");
+  return (await res.json()) as RecipesPage;
 }
