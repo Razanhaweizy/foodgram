@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session, selectinload, joinedload
 from sqlalchemy import or_, func
 from fastapi import FastAPI, HTTPException, Depends, status
 from backend.models.recipes import Recipe
@@ -24,7 +24,11 @@ def create_recipe(db: Session, author_id: int, input_title: str, input_descripti
     return new_recipe
 
 def get_recipe_by_id(db: Session, id: int):
-    recipe = ( db.query(Recipe).options(selectinload(Recipe.likes), selectinload(Recipe.saves), selectinload(Recipe.creator)).filter(Recipe.id == id).first() )
+    recipe = (
+        db.query(Recipe)
+        .options(joinedload(Recipe.creator))  
+        .get(id)
+    )
     if not recipe:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recipe not found")
     
@@ -44,11 +48,11 @@ def list_recipes(
         offset: int=0,
         author_id: Optional[int] = None,
         ):
-    
+       
     query = (db.query(Recipe).options(
         selectinload(Recipe.likes),
         selectinload(Recipe.saves),
-        selectinload(Recipe.creator)
+        joinedload(Recipe.creator)
     ))
 
 

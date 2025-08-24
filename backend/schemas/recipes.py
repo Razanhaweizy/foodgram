@@ -1,7 +1,8 @@
-from pydantic import BaseModel, EmailStr, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, AliasChoices
 from typing import Optional, List
 from datetime import datetime
 from .tags import TagOut
+from .users import UserOut
 
 class RecipeCreate(BaseModel):
     title: str
@@ -21,18 +22,26 @@ class RecipeOut(BaseModel):
     id: int
     title: str
     description: Optional[str] = None
-    ingredients: list[str]
-    steps: list[str]
+    ingredients: List[str]
+    steps: List[str]
+
     created_by_id: int
+
+    created_by: Optional[UserOut] = Field(
+        default=None,
+        validation_alias=AliasChoices("created_by", "creator"),
+        serialization_alias="created_by",
+    )
+
     created_at: datetime
 
     likes_count: int = 0
     saves_count: int = 0
 
-    tags: list[TagOut] = []
-
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(
+        from_attributes=True,
+        populate_by_name=True,  
+    )
 
 class RecipesPage(BaseModel):
     items: list[RecipeOut]

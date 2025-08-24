@@ -1,8 +1,7 @@
-# backend/routers/recipes.py
-
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from typing import Optional, Literal
+from typing import Optional, Literal, List
+from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 
 from backend.database import get_db
@@ -33,10 +32,28 @@ def create_recipe(
         input_ingredients=payload.ingredients,
         input_steps=payload.steps,
     )
+    _ = recipe.creator  
+
     base = RecipeOut.model_validate(recipe, from_attributes=True)
     return base.model_copy(update={"likes_count": 0, "saves_count": 0})
 
-@router.get("", response_model=RecipesPage)
+@router.get("/{recipe_id}", response_model=RecipeOut)
+def get_recipe(recipe_id: int, db: Session = Depends(get_db)):
+    recipe, likes_count, saves_count = crud_get_recipe_by_id(db, recipe_id)
+    out = RecipeOut.model_validate(recipe, from_attributes=True)
+    # attach counts
+    out.likes_count = likes_count
+    out.saves_count = saves_count
+    return out
+
+class RecipesPageOut(BaseModel):
+    items: List[RecipeOut]
+    total: int
+    limit: int
+    offset: int
+    model_config = ConfigDict(from_attributes=True)
+
+@router.get("", response_model=RecipesPageOut)
 def list_recipes_route(
     db: Session = Depends(get_db),
     q: Optional[str] = Query(None),
@@ -46,9 +63,10 @@ def list_recipes_route(
     sort_dir: Literal["asc", "desc"] = "desc",
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
+    author_id: Optional[int] = Query(None),
 ):
     recipes, total = crud_list_recipes(
-        db,
+        db=db,
         q=q,
         created_after=created_after,
         created_before=created_before,
@@ -56,21 +74,18 @@ def list_recipes_route(
         sort_dir=sort_dir,
         limit=limit,
         offset=offset,
+        author_id=author_id,
     )
-    items = []
-    for r in recipes:
-        base = RecipeOut.model_validate(r, from_attributes=True)
-        items.append(base.model_copy(update={
-            "likes_count": len(r.likes),
-            "saves_count": len(r.saves),
-        }))
-    return RecipesPage(items=items, total=total, limit=limit, offset=offset)
 
-@router.get("/{recipe_id}", response_model=RecipeOut)
-def get_recipe(recipe_id: int, db: Session = Depends(get_db)):
-    recipe, likes_count, saves_count = crud_get_recipe_by_id(db, recipe_id)
-    base = RecipeOut.model_validate(recipe, from_attributes=True)
-    return base.model_copy(update={"likes_count": likes_count, "saves_count": saves_count})
+    items: List[RecipeOut] = []
+    for r in recipes:
+        out = RecipeOut.model_validate(r, from_attributes=True)
+        # counts from preloaded relationships
+        out.likes_count = len(r.likes)
+        out.saves_count = len(r.saves)
+        items.append(out)
+
+    return RecipesPageOut(items=items, total=total, limit=limit, offset=offset)
 
 @router.patch("/{recipe_id}", response_model=RecipeOut)
 def update_recipe_route(

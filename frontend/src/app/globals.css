@@ -129,3 +129,9 @@
   --panel: #fceee9;       /* panel/card */
   --bg: linear-gradient(135deg, #f8d3c5 0%, #fceee9 35%, #dde6d5 100%);
 }
+
+button,
+[role="button"],
+a.button-like {
+  cursor: pointer;
+}

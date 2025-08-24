@@ -9,51 +9,31 @@ import { fetchMe } from "@/lib/users";
 import { fetchRecipes, fetchMySavedRecipes } from "@/lib/recipes";
 import type { Recipe, RecipesPage } from "@/lib/types";
 import { RecipeCard } from "@/components/recipes/RecipeCard";
-
-// adjust this import if your helpers live elsewhere
 import { clearTokens } from "@/lib/validation/auth";
+import { Sidebar } from "@/components/SideBar";
 
 export default function MePage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = React.useState<"mine" | "saved">("mine");
 
-  // 1) Me
   const { data: me, isLoading: meLoading, isError: meError } = useQuery({
     queryKey: ["me"],
     queryFn: fetchMe,
   });
 
-  // Pagination knobs (simple starters)
   const limit = 20;
   const [offsetMine] = React.useState(0);
   const [offsetSaved] = React.useState(0);
 
-  // 2) My recipes
   const qMine = ["recipes", { author_id: me?.id, limit, offset: offsetMine, sort_by: "created_at", sort_dir: "desc" }] as const;
-  const {
-    data: mine,
-    isLoading: mineLoading,
-    isError: mineError,
-  } = useQuery<RecipesPage>({
+  const { data: mine, isLoading: mineLoading, isError: mineError } = useQuery<RecipesPage>({
     queryKey: qMine,
     enabled: !!me?.id,
-    queryFn: () =>
-      fetchRecipes({
-        author_id: me!.id,
-        limit,
-        offset: offsetMine,
-        sort_by: "created_at",
-        sort_dir: "desc",
-      }),
+    queryFn: () => fetchRecipes({ author_id: me!.id, limit, offset: offsetMine, sort_by: "created_at", sort_dir: "desc" }),
   });
 
-  // 3) My saved
   const qSaved = ["recipes_saved", { limit, offset: offsetSaved }] as const;
-  const {
-    data: saved,
-    isLoading: savedLoading,
-    isError: savedError,
-  } = useQuery<RecipesPage>({
+  const { data: saved, isLoading: savedLoading, isError: savedError } = useQuery<RecipesPage>({
     queryKey: qSaved,
     enabled: !!me?.id,
     queryFn: () => fetchMySavedRecipes({ limit, offset: offsetSaved }),
@@ -81,93 +61,60 @@ export default function MePage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between rounded-2xl border border-[#e6dfdd] bg-white p-5">
-        <div>
-          <h1 className="text-2xl font-semibold text-[#2b2b2b]">@{me.username}</h1>
-          <p className="text-sm text-[#667b68]">{me.email}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => router.push("/recipes")}
-            className="rounded-xl bg-[#667b68] px-4 py-2 text-white hover:brightness-105"
-          >
-            Browse Recipes
-          </button>
-          <button
-            onClick={onLogout}
-            className="rounded-xl border border-[#e6dfdd] px-4 py-2 text-sm text-[#2b2b2b] hover:bg-[#dde6d5]/40"
-          >
-            Log out
-          </button>
-        </div>
-      </div>
+    <div className="mx-auto max-w-7xl p-4 md:p-6">
+      <div className="flex gap-6">
+        {/* Sidebar */}
+        <Sidebar mode="me" />
 
-      {/* Tabs */}
-      <div className="mt-6 flex items-center justify-between">
-        <div className="flex gap-2">
-          <button
-            onClick={() => setActiveTab("mine")}
-            className={`rounded-xl px-4 py-2 text-sm ${
-              activeTab === "mine"
-                ? "bg-[#667b68] text-white"
-                : "border border-[#e6dfdd] text-[#2b2b2b] hover:bg-[#dde6d5]/40"
-            }`}
-          >
-            My Recipes
-          </button>
-          <button
-            onClick={() => setActiveTab("saved")}
-            className={`rounded-xl px-4 py-2 text-sm ${
-              activeTab === "saved"
-                ? "bg-[#667b68] text-white"
-                : "border border-[#e6dfdd] text-[#2b2b2b] hover:bg-[#dde6d5]/40"
-            }`}
-          >
-            Saved
-          </button>
-        </div>
+        {/* Main content */}
+        <div className="flex-1">
+          {/* Header */}
+          <div className="flex items-center justify-between rounded-2xl border border-[#e6dfdd] bg-white p-5">
+            <div>
+              <h1 className="text-2xl font-semibold text-[#2b2b2b]">@{me.username}</h1>
+              <p className="text-sm text-[#667b68]">{me.email}</p>
+            </div>
+            <button
+              onClick={onLogout}
+              className="rounded-xl border border-[#e6dfdd] px-4 py-2 text-sm text-[#2b2b2b] hover:bg-[#dde6d5]/40 cursor-pointer"
+            >
+              Log out
+            </button>
+          </div>
 
-        {/* Create button only on "My Recipes" tab */}
-        {activeTab === "mine" && (
-          <button
-            onClick={() => router.push("/recipes/create")}
-            className="rounded-xl bg-[#a3b899] px-4 py-2 text-sm text-white hover:brightness-105"
-          >
-            + Create Recipe
-          </button>
-        )}
-      </div>
+          {/* Tabs */}
+          <div className="mt-6 flex gap-2">
+            <button
+              onClick={() => setActiveTab("mine")}
+              className={`rounded-xl px-4 py-2 text-sm cursor-pointer ${
+                activeTab === "mine"
+                  ? "bg-[#667b68] text-white"
+                  : "border border-[#e6dfdd] text-[#2b2b2b] hover:bg-[#dde6d5]/40"
+              }`}
+            >
+              My Recipes
+            </button>
+            <button
+              onClick={() => setActiveTab("saved")}
+              className={`rounded-xl px-4 py-2 text-sm cursor-pointer ${
+                activeTab === "saved"
+                  ? "bg-[#667b68] text-white"
+                  : "border border-[#e6dfdd] text-[#2b2b2b] hover:bg-[#dde6d5]/40"
+              }`}
+            >
+              Saved
+            </button>
+          </div>
 
-      {/* Content */}
-      <div className="mt-6">
-        {activeTab === "mine" ? (
-          <Section
-            title="My Recipes"
-            loading={mineLoading}
-            error={mineError}
-            data={mine}
-            // RecipeCard expects a list of query keys; wrap in an array
-            queryKey={[qMine] as unknown as unknown[]}
-            emptyCta={(
-              <button
-                onClick={() => router.push("/recipes/create")}
-                className="mt-2 rounded-xl bg-[#a3b899] px-4 py-2 text-sm text-white hover:brightness-105"
-              >
-                Create your first recipe
-              </button>
+          {/* Content */}
+          <div className="mt-6">
+            {activeTab === "mine" ? (
+              <Section title="Recipes" loading={mineLoading} error={mineError} data={mine} queryKey={qMine as unknown as unknown[]} />
+            ) : (
+              <Section title="Saved Recipes" loading={savedLoading} error={savedError} data={saved} queryKey={qSaved as unknown as unknown[]} />
             )}
-          />
-        ) : (
-          <Section
-            title="Saved Recipes"
-            loading={savedLoading}
-            error={savedError}
-            data={saved}
-            queryKey={[qSaved] as unknown as unknown[]}
-          />
-        )}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -179,28 +126,23 @@ function Section({
   error,
   data,
   queryKey,
-  emptyCta,
 }: {
   title: string;
   loading: boolean;
   error: boolean;
   data?: RecipesPage;
   queryKey: unknown[];
-  emptyCta?: React.ReactNode;
 }) {
   if (loading) return <p className="text-[#667b68]">Loading {title}…</p>;
   if (error) return <p className="text-red-600">Failed to load {title.toLowerCase()}.</p>;
 
   return data?.items?.length ? (
-    <div className="grid gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       {data.items.map((r: Recipe) => (
-        <RecipeCard key={r.id} recipe={r} queryKey={queryKey} />
+        <RecipeCard key={r.id} recipe={r} queryKey={[queryKey]} clickableCard />
       ))}
     </div>
   ) : (
-    <div className="text-[#667b68]">
-      <p>No {title.toLowerCase()} yet.</p>
-      {emptyCta}
-    </div>
+    <p className="text-[#667b68]">No {title.toLowerCase()} yet.</p>
   );
 }

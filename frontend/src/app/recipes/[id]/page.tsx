@@ -14,7 +14,6 @@ import {
   saveRecipe,
   unsaveRecipe,
 } from "@/lib/recipes";
-import { fetchUserById } from "@/lib/users";
 import { getCurrentUserId } from "@/lib/auth-token";
 import type { Recipe } from "@/lib/types";
 import {
@@ -33,20 +32,13 @@ export default function RecipeDetailPage() {
   const qc = useQueryClient();
   const meId = getCurrentUserId();
 
-  // Typed query: Recipe
+  // Load the recipe (typed)
   const { data: recipe, isLoading, isError } = useQuery<Recipe>({
     queryKey: ["recipe", rid],
     queryFn: () => fetchRecipeById(rid),
   });
 
-  // Author (after recipe arrives)
-  const { data: author } = useQuery({
-    queryKey: ["user", recipe?.created_by_id],
-    enabled: !!recipe?.created_by_id,
-    queryFn: () => fetchUserById(recipe!.created_by_id),
-  });
-
-  // Like / Unlike
+  // Mutations
   const likeMut = useMutation({
     mutationFn: () => likeRecipe(rid),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["recipe", rid] }),
@@ -55,8 +47,6 @@ export default function RecipeDetailPage() {
     mutationFn: () => unlikeRecipe(rid),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["recipe", rid] }),
   });
-
-  // Save / Unsave
   const saveMut = useMutation({
     mutationFn: () => saveRecipe(rid),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["recipe", rid] }),
@@ -65,8 +55,6 @@ export default function RecipeDetailPage() {
     mutationFn: () => unsaveRecipe(rid),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["recipe", rid] }),
   });
-
-  // Delete (owner only)
   const delMut = useMutation({
     mutationFn: () => deleteRecipe(rid),
     onSuccess: () => {
@@ -80,13 +68,24 @@ export default function RecipeDetailPage() {
   if (isLoading) return <div className="p-6 text-[#667b68]">Loading…</div>;
   if (isError || !recipe) return <div className="p-6 text-red-600">Recipe not found.</div>;
 
-  const isOwner = meId === recipe.created_by_id;
+  // Support both shapes:
+  // - nested: recipe.created_by = { id, username }
+  // - flat:   recipe.created_by_id (number)
+  const authorId =
+    (recipe as any)?.created_by?.id ??
+    (recipe as any)?.created_by_id ??
+    null;
 
-  // created_at is a string from API – format safely
-  const createdAtText =
-    recipe.created_at
-      ? new Date(recipe.created_at as unknown as string).toLocaleDateString()
-      : undefined;
+  const authorUsername =
+    (recipe as any)?.created_by?.username ??
+    (recipe as any)?.creator?.username ?? // just in case your backend used "creator"
+    null;
+
+  const isOwner = typeof meId === "number" && typeof authorId === "number" && meId === authorId;
+
+  const createdAtText = recipe.created_at
+    ? new Date(String(recipe.created_at)).toLocaleDateString()
+    : undefined;
 
   return (
     <div className="mx-auto max-w-3xl p-6 space-y-6">
@@ -124,15 +123,15 @@ export default function RecipeDetailPage() {
           <div className="flex flex-wrap items-center gap-3 text-sm text-[#667b68]">
             <span className="inline-flex items-center gap-1">
               <UserIcon className="h-4 w-4" />
-              {author ? (
+              {authorId ? (
                 <Link
-                  href={`/users/${author.id}`}
+                  href={`/users/${authorId}`}
                   className="underline underline-offset-2 hover:opacity-90"
                 >
-                  @{author.username}
+                  @{authorUsername ?? `user${authorId}`}
                 </Link>
               ) : (
-                <>by user #{recipe.created_by_id}</>
+                <>Unknown author</>
               )}
             </span>
             {createdAtText && <span>• {createdAtText}</span>}

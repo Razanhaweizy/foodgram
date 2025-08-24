@@ -1,16 +1,23 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { Recipe } from "@/lib/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { likeRecipe, unlikeRecipe, saveRecipe, unsaveRecipe } from "@/lib/recipes";
 import { toast } from "sonner";
 import { Heart, Bookmark } from "lucide-react";
 
+const cardBase = "rounded-2xl border border-[#e6dfdd] bg-white p-4 shadow-sm h-full";
+const cardClickable = "transition hover:bg-[#dde6d5]/30 cursor-pointer";
+
+
 type Props = {
   recipe: Recipe;
+  /** Query keys whose caches should be updated/invalidated. 
+   *  Pass the same keys you used in useQuery. */
   queryKey?: unknown[];
-  /** if true, make the whole card clickable to the detail page */
+  /** If true, clicking the card navigates to /recipes/[id] */
   clickableCard?: boolean;
 };
 
@@ -20,24 +27,26 @@ export function RecipeCard({
   clickableCard = false,
 }: Props) {
   const qc = useQueryClient();
+  const router = useRouter();
 
-  // --- optimistic helpers (unchanged) ---
-  const updateCounts = (delta: Partial<Pick<Recipe, "likes_count" | "saves_count">>) => {
+  /** Helper: update counts based on current cache, not stale props */
+  const bumpCounts = (bump: { like?: 1 | -1; save?: 1 | -1 }) => {
     for (const q of queryKey) {
       const key = q as any;
       qc.setQueryData(key, (old: any) => {
         if (!old?.items) return old;
         return {
           ...old,
-          items: old.items.map((r: Recipe) =>
-            r.id === recipe.id
-              ? {
-                  ...r,
-                  likes_count: delta.likes_count ?? r.likes_count,
-                  saves_count: delta.saves_count ?? r.saves_count,
-                }
-              : r
-          ),
+          items: old.items.map((r: Recipe) => {
+            if (r.id !== recipe.id) return r;
+            return {
+              ...r,
+              likes_count:
+                r.likes_count + (bump.like ?? 0),
+              saves_count:
+                r.saves_count + (bump.save ?? 0),
+            };
+          }),
         };
       });
     }
@@ -47,14 +56,15 @@ export function RecipeCard({
     mutationFn: () => likeRecipe(recipe.id),
     onMutate: async () => {
       await qc.cancelQueries({ queryKey: queryKey[0] as any });
-      updateCounts({ likes_count: recipe.likes_count + 1 });
+      bumpCounts({ like: 1 });
     },
     onError: () => {
-      updateCounts({ likes_count: Math.max(0, recipe.likes_count) });
+      bumpCounts({ like: -1 });
       toast.error("Couldn’t like recipe");
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKey[0] as any });
+      qc.invalidateQueries({ queryKey: ["recipe", recipe.id] });
     },
   });
 
@@ -62,14 +72,15 @@ export function RecipeCard({
     mutationFn: () => unlikeRecipe(recipe.id),
     onMutate: async () => {
       await qc.cancelQueries({ queryKey: queryKey[0] as any });
-      updateCounts({ likes_count: Math.max(0, recipe.likes_count - 1) });
+      bumpCounts({ like: -1 });
     },
     onError: () => {
-      updateCounts({ likes_count: recipe.likes_count });
+      bumpCounts({ like: 1 });
       toast.error("Couldn’t unlike recipe");
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKey[0] as any });
+      qc.invalidateQueries({ queryKey: ["recipe", recipe.id] });
     },
   });
 
@@ -77,14 +88,15 @@ export function RecipeCard({
     mutationFn: () => saveRecipe(recipe.id),
     onMutate: async () => {
       await qc.cancelQueries({ queryKey: queryKey[0] as any });
-      updateCounts({ saves_count: recipe.saves_count + 1 });
+      bumpCounts({ save: 1 });
     },
     onError: () => {
-      updateCounts({ saves_count: Math.max(0, recipe.saves_count) });
+      bumpCounts({ save: -1 });
       toast.error("Couldn’t save recipe");
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKey[0] as any });
+      qc.invalidateQueries({ queryKey: ["recipe", recipe.id] });
     },
   });
 
@@ -92,14 +104,15 @@ export function RecipeCard({
     mutationFn: () => unsaveRecipe(recipe.id),
     onMutate: async () => {
       await qc.cancelQueries({ queryKey: queryKey[0] as any });
-      updateCounts({ saves_count: Math.max(0, recipe.saves_count - 1) });
+      bumpCounts({ save: -1 });
     },
     onError: () => {
-      updateCounts({ saves_count: recipe.saves_count });
+      bumpCounts({ save: 1 });
       toast.error("Couldn’t unsave recipe");
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKey[0] as any });
+      qc.invalidateQueries({ queryKey: ["recipe", recipe.id] });
     },
   });
 
@@ -108,16 +121,19 @@ export function RecipeCard({
   const cardClickable =
     "transition hover:bg-[#dde6d5]/30 cursor-pointer";
 
+  const goDetail = () => router.push(`/recipes/${recipe.id}`);
+
   return (
     <div
       className={`${cardBase} ${clickableCard ? cardClickable : ""}`}
-      {...(clickableCard ? { onClick: () => (window.location.href = `/recipes/${recipe.id}`) } : {})}
+      {...(clickableCard ? { onClick: goDetail } : {})}
     >
       <div className="flex items-start justify-between gap-4">
-        {/* Title now links to /recipes/[id] */}
+        {/* Title -> always link to detail */}
         <Link
           href={`/recipes/${recipe.id}`}
           className="text-lg font-semibold text-[#2b2b2b] hover:underline underline-offset-4"
+          onClick={(e) => e.stopPropagation()}
         >
           {recipe.title}
         </Link>
