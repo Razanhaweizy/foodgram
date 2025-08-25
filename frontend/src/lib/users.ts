@@ -15,11 +15,13 @@ export async function fetchMe(): Promise<Me> {
 export type UserPublic = {
   id: number;
   username: string;
-  email: string;
+  avatar_url?: string | null; 
+  bio?: string | null;
+  created_at: string;
 };
 
 export async function fetchUserById(id: number): Promise<UserPublic> {
-  const res = await apiFetch(`/users/${id}`);
+  const res = await apiFetch(`/users/${id}/public`);
   if (!res.ok) throw new Error("User not found");
   return res.json();
 }

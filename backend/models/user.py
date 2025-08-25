@@ -1,5 +1,5 @@
-from typing import List, TYPE_CHECKING
-from sqlalchemy import Integer, String, DateTime
+from typing import List, TYPE_CHECKING, Optional
+from sqlalchemy import Integer, String, DateTime, Text
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from datetime import datetime
 from sqlalchemy.sql import func
@@ -20,6 +20,10 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String(256), nullable=False) 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False) #what day/time account was created
     is_admin: Mapped[bool] = mapped_column(default=False)
+
+    #profile
+    bio: Mapped[Optional[str]] = mapped_column(Text, default=None, nullable=True) #bio description that shows up on user's profile
+    avatar_url: Mapped[Optional[str]] = mapped_column(String(512), default=None, nullable=True) #user profile photo
 
     #date_birth: Mapped[date] = mapped_column(nullable=True)
 
