@@ -1,258 +1,76 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import {
-  fetchRecipeById,
-  deleteRecipe,
-  likeRecipe,
-  unlikeRecipe,
-  saveRecipe,
-  unsaveRecipe,
-} from "@/lib/recipes";
-import { fetchUserById } from "@/lib/users";
 import { getCurrentUserId } from "@/lib/auth-token";
+import { fetchRecipeById, updateRecipe } from "@/lib/recipes";
 import type { Recipe } from "@/lib/types";
-import {
-  Heart,
-  Bookmark,
-  Pencil,
-  Trash2,
-  ArrowLeft,
-  User as UserIcon,
-} from "lucide-react";
+import RecipeForm from "@/components/RecipeForm";
 
-export default function RecipeDetailPage() {
+export default function EditRecipePage() {
   const { id } = useParams<{ id: string }>();
   const rid = Number(id);
   const router = useRouter();
   const qc = useQueryClient();
   const meId = getCurrentUserId();
 
-  // Load recipe
+  // Load the recipe (typed)
   const { data: recipe, isLoading, isError } = useQuery<Recipe>({
     queryKey: ["recipe", rid],
     queryFn: () => fetchRecipeById(rid),
   });
 
-  // Resolve author id from either shape; prefer created_by_id (your backend)
-  const authorId =
-    (recipe as any)?.created_by_id ??
-    (recipe as any)?.created_by?.id ??
-    null;
-
-  // If we don't already have a username, fetch the user
-  const { data: author } = useQuery({
-    queryKey: ["user", authorId],
-    enabled: !!authorId,
-    queryFn: () => fetchUserById(authorId as number),
-  });
-
-  const authorUsername =
-    (recipe as any)?.created_by?.username ?? author?.username ?? null;
-
-  // Mutations
-  const likeMut = useMutation({
-    mutationFn: () => likeRecipe(rid),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["recipe", rid] }),
-  });
-  const unlikeMut = useMutation({
-    mutationFn: () => unlikeRecipe(rid),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["recipe", rid] }),
-  });
-  const saveMut = useMutation({
-    mutationFn: () => saveRecipe(rid),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["recipe", rid] }),
-  });
-  const unsaveMut = useMutation({
-    mutationFn: () => unsaveRecipe(rid),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["recipe", rid] }),
-  });
-  const delMut = useMutation({
-    mutationFn: () => deleteRecipe(rid),
+  // Patch mutation
+  const mut = useMutation({
+    mutationFn: (patch: any) => updateRecipe(rid, patch),
     onSuccess: () => {
-      toast.success("Recipe deleted");
+      toast.success("Recipe updated");
+      // refresh detail + list and go back to detail
+      qc.invalidateQueries({ queryKey: ["recipe", rid] });
       qc.invalidateQueries({ queryKey: ["recipes"] });
-      router.push("/recipes");
+      router.push(`/recipes/${rid}`);
     },
-    onError: (e: any) => toast.error(e?.message ?? "Delete failed"),
+    onError: (e: any) => toast.error(e?.message ?? "Update failed"),
   });
 
   if (isLoading) return <div className="p-6 text-[#667b68]">Loading…</div>;
-  if (isError || !recipe) return <div className="p-6 text-red-600">Recipe not found.</div>;
+  if (isError || !recipe) return <div className="p-6 text-red-600">Not found</div>;
 
-  const isOwner =
-    typeof meId === "number" &&
-    typeof authorId === "number" &&
-    meId === authorId;
-
-  const createdAtText = recipe.created_at
-    ? new Date(String(recipe.created_at)).toLocaleDateString()
-    : undefined;
+  // ✅ Option A: use nested created_by.id
+  if (meId !== recipe.created_by.id) {
+    return <div className="p-6 text-[#667b68]">You can’t edit this recipe.</div>;
+  }
 
   return (
-    <div className="mx-auto max-w-3xl p-6 space-y-6">
-      {/* Top nav */}
+    <div className="mx-auto max-w-2xl space-y-6 p-6">
       <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold text-[#2b2b2b]">Edit Recipe</h1>
         <button
           onClick={() => router.back()}
-          className="inline-flex items-center gap-2 rounded-xl bg-[#a3b899] px-3 py-2 text-sm text-white hover:brightness-105"
+          className="rounded-xl bg-[#a3b899] px-3 py-2 text-sm text-white hover:brightness-105 cursor-pointer"
         >
-          <ArrowLeft className="h-4 w-4" />
           Back
         </button>
-
-        <div className="flex items-center gap-2">
-          <Link
-            href="/me"
-            className="rounded-xl bg-[#a3b899] px-3 py-2 text-sm text-white hover:brightness-105"
-          >
-            My Page
-          </Link>
-          <Link
-            href="/recipes"
-            className="rounded-xl border border-[#e6dfdd] px-3 py-2 text-sm text-[#2b2b2b] hover:bg-[#dde6d5]/40"
-          >
-            Browse Recipes
-          </Link>
-        </div>
       </div>
 
-      {/* Title + author + owner actions */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold text-[#2b2b2b]">{recipe.title}</h1>
-
-          <div className="flex flex-wrap items-center gap-3 text-sm text-[#667b68]">
-            <span className="inline-flex items-center gap-1">
-              <UserIcon className="h-4 w-4" />
-              {authorId ? (
-                <Link
-                  href={`/users/${authorId}`}
-                  className="underline underline-offset-2 hover:opacity-90"
-                >
-                  @{authorUsername ?? `user #${authorId}`}
-                </Link>
-              ) : (
-                <>Unknown author</>
-              )}
-            </span>
-            {createdAtText && <span>• {createdAtText}</span>}
-          </div>
-        </div>
-
-        {isOwner && (
-          <div className="flex gap-2">
-            <Link
-              href={`/recipes/${rid}/edit`}
-              className="inline-flex items-center gap-2 rounded-xl border border-[#e6dfdd] px-3 py-2 text-sm text-[#2b2b2b] hover:bg-[#dde6d5]/40"
-            >
-              <Pencil className="size-4" />
-              Edit
-            </Link>
-            <button
-              onClick={() => {
-                if (delMut.isPending) return;
-                if (confirm("Delete this recipe? This cannot be undone.")) {
-                  delMut.mutate();
-                }
-              }}
-              disabled={delMut.isPending}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#e85c5c] px-3 py-2 text-sm text-white hover:brightness-105 disabled:opacity-60"
-            >
-              <Trash2 className="size-4" />
-              {delMut.isPending ? "Deleting…" : "Delete"}
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Counts */}
-      <div className="mt-2 flex items-center gap-4 text-sm text-[#667b68]">
-        <span className="inline-flex items-center gap-1">
-          <Heart className="size-4" />
-          {recipe.likes_count}
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <Bookmark className="size-4" />
-          {recipe.saves_count}
-        </span>
-      </div>
-
-      {/* Tags */}
-      {recipe.tags?.length ? (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {recipe.tags.map((t) => (
-            <span
-              key={t.id}
-              className="rounded-full bg-[#fceee9] px-2 py-1 text-xs text-[#667b68] ring-1 ring-[#f8d3c5]"
-            >
-              {t.name}
-            </span>
-          ))}
-        </div>
-      ) : null}
-
-      {/* Description */}
-      {recipe.description && (
-        <p className="mt-4 text-[#2b2b2b]">{recipe.description}</p>
-      )}
-
-      {/* Ingredients */}
-      <section className="mt-6">
-        <h2 className="mb-2 font-medium text-[#2b2b2b]">Ingredients</h2>
-        <ul className="list-disc space-y-1 pl-5 text-[#2b2b2b]">
-          {recipe.ingredients.map((i, idx) => (
-            <li key={idx}>{i}</li>
-          ))}
-        </ul>
-      </section>
-
-      {/* Steps */}
-      <section className="mt-6">
-        <h2 className="mb-2 font-medium text-[#2b2b2b]">Steps</h2>
-        <ol className="list-decimal space-y-2 pl-5 text-[#2b2b2b]">
-          {recipe.steps.map((s, idx) => (
-            <li key={idx}>{s}</li>
-          ))}
-        </ol>
-      </section>
-
-      {/* Actions */}
-      <div className="mt-8 flex flex-wrap gap-2">
-        <button
-          onClick={() => likeMut.mutate()}
-          disabled={likeMut.isPending}
-          className="rounded-xl bg-[#667b68] px-3 py-2 text-sm text-white hover:brightness-105 disabled:opacity-60"
-        >
-          Like
-        </button>
-        <button
-          onClick={() => unlikeMut.mutate()}
-          disabled={unlikeMut.isPending}
-          className="rounded-xl border border-[#e6dfdd] px-3 py-2 text-sm text-[#2b2b2b] hover:bg-[#dde6d5]/40 disabled:opacity-60"
-        >
-          Unlike
-        </button>
-        <button
-          onClick={() => saveMut.mutate()}
-          disabled={saveMut.isPending}
-          className="rounded-xl bg-[#a3b899] px-3 py-2 text-sm text-white hover:brightness-105 disabled:opacity-60"
-        >
-          Save
-        </button>
-        <button
-          onClick={() => unsaveMut.mutate()}
-          disabled={unsaveMut.isPending}
-          className="rounded-xl border border-[#e6dfdd] px-3 py-2 text-sm text-[#2b2b2b] hover:bg-[#dde6d5]/40 disabled:opacity-60"
-        >
-          Unsave
-        </button>
-      </div>
+      <RecipeForm
+        initial={{
+          title: recipe.title,
+          description: recipe.description ?? "",
+          ingredientsText: recipe.ingredients.join("\n"),
+          stepsText: recipe.steps.join("\n"),
+          // if you’re entering tag IDs as a comma list in the form:
+          tagsText: (recipe.tags ?? []).map((t) => t.id).join(","),
+        }}
+        submitLabel={mut.isPending ? "Saving…" : "Save Changes"}
+        onSubmit={async (payload) => {
+          // payload should match your updateRecipe signature
+          await mut.mutateAsync(payload);
+        }}
+      />
     </div>
   );
 }
